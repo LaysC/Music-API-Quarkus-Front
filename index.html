@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard de Música</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css" integrity="sha512-z3gLPD6dFh3yXgWkK1CjT2z0h4E9j2k5+3R5T0H3yT7k6Uv/v6V7Z3I6a5L1GvC4Vj7F5N5F5A5O23A==" crossorigin="anonymous" referrerpolicy="no-referrer" />
+    <style>
+        :root {
+            --primary-color: #1db954;
+            --background-dark: #121212;
+            --surface-dark: #212121;
+            --text-light: #b3b3b3;
+            --text-muted: #535353;
+        }
+        body {
+            background-color: var(--background-dark);
+            color: var(--text-light);
+            font-family: ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+        }
+        .sidebar {
+            background-color: var(--surface-dark);
+        }
+        .nav-link {
+            color: var(--text-light);
+            transition: color 0.2s ease, background-color 0.2s ease;
+        }
+        .nav-link.active {
+            background-color: var(--primary-color);
+            color: var(--background-dark);
+            font-weight: bold;
+        }
+        .nav-link:hover:not(.active) {
+            color: var(--primary-color);
+        }
+        .btn-primary {
+            background-color: var(--primary-color);
+            color: var(--background-dark);
+        }
+        .btn-primary:hover {
+            opacity: 0.9;
+        }
+        .table-header {
+            background-color: var(--surface-dark);
+            color: var(--text-light);
+        }
+        .table-row:nth-child(odd) {
+            background-color: #1a1a1a;
+        }
+        .table-row:nth-child(even) {
+            background-color: var(--surface-dark);
+        }
+        .table-cell {
+            padding: 12px;
+            border-bottom: 1px solid var(--text-muted);
+        }
+        .form-input, .form-select, .form-textarea {
+            background-color: var(--surface-dark);
+            border: 1px solid var(--text-muted);
+            color: var(--text-light);
+            padding: 8px;
+            border-radius: 4px;
+        }
+        .form-input:focus, .form-select:focus, .form-textarea:focus {
+            outline: none;
+            border-color: var(--primary-color);
+            box-shadow: 0 0 0 1px var(--primary-color);
+        }
+        .modal-overlay {
+            background-color: rgba(0, 0, 0, 0.7);
+            transition: opacity 0.3s ease;
+            opacity: 0;
+            pointer-events: none;
+        }
+        .modal-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+        .modal-content {
+            background-color: var(--background-dark);
+            transition: transform 0.3s ease, opacity 0.3s ease;
+            transform: translateY(-20px);
+            opacity: 0;
+        }
+        .modal-overlay.active .modal-content {
+            transform: translateY(0);
+            opacity: 1;
+        }
+        .toast {
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .toast.show {
+            opacity: 1;
+        }
+    </style>
+</head>
+<body class="flex min-h-screen">
+    <aside class="sidebar w-64 p-6 shadow-lg flex flex-col justify-between">
+        <div>
+            <div class="text-3xl font-bold mb-8 text-white">Music Dashboard</div>
+            <nav>
+                <ul class="space-y-2">
+                    <li><a href="#" class="nav-link block p-3 rounded-md" data-target="artists">Artistas</a></li>
+                    <li><a href="#" class="nav-link block p-3 rounded-md" data-target="songs">Músicas</a></li>
+                    <li><a href="#" class="nav-link block p-3 rounded-md" data-target="genres">Gêneros Musicais</a></li>
+                </ul>
+            </nav>
+        </div>
+        <footer class="mt-8 text-center text-xs text-gray-400">
+            © 2025 Dashboard de Música
+        </footer>
+    </aside>
+
+    <main class="flex-1 p-8">
+        <header class="mb-8">
+            <h1 class="text-4xl font-bold text-white" id="main-title">Artistas</h1>
+        </header>
+        
+        <div id="content-area" class="space-y-8">
+            <section id="artists-section" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <button id="add-artist-btn" class="btn-primary py-2 px-4 rounded-md transition-colors">Adicionar Artista</button>
+                    <div class="relative">
+                        <input type="text" id="artist-search" placeholder="Buscar artistas..." class="form-input w-64">
+                        <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <div id="artists-list"></div>
+            </section>
+
+            <section id="songs-section" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <button id="add-song-btn" class="btn-primary py-2 px-4 rounded-md transition-colors">Adicionar Música</button>
+                    <div class="relative">
+                        <input type="text" id="song-search" placeholder="Buscar músicas..." class="form-input w-64">
+                        <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <div id="songs-list"></div>
+            </section>
+
+            <section id="genres-section" class="hidden">
+                <div class="flex justify-between items-center mb-6">
+                    <button id="add-genre-btn" class="btn-primary py-2 px-4 rounded-md transition-colors">Adicionar Gênero Musical</button>
+                    <div class="relative">
+                        <input type="text" id="genre-search" placeholder="Buscar gêneros..." class="form-input w-64">
+                        <i class="fas fa-search absolute right-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                    </div>
+                </div>
+                <div id="genres-list"></div>
+            </section>
+        </div>
+    </main>
+
+    <div id="modal" class="modal-overlay fixed inset-0 flex items-center justify-center">
+        <div class="modal-content w-11/12 md:w-1/2 p-8 rounded-lg shadow-xl">
+            <div class="flex justify-between items-center pb-3 border-b border-gray-700 mb-4">
+                <h3 id="modal-title" class="text-xl font-bold text-white"></h3>
+                <button id="close-modal-btn" class="text-white hover:text-gray-400 text-2xl">&times;</button>
+            </div>
+            <div id="modal-body" class="max-h-[70vh] overflow-y-auto pr-2"></div>
+        </div>
+    </div>
+    
+    <div id="toast-container" class="fixed top-4 right-4 z-50"></div>
+
+    <script>
+        const API_BASE_URL = 'https://music-api-quarkus.onrender.com';
+        const contentArea = document.getElementById('content-area');
+        const mainTitle = document.getElementById('main-title');
+        const navLinks = document.querySelectorAll('.nav-link');
+        const modal = document.getElementById('modal');
+        const modalTitle = document.getElementById('modal-title');
+        const modalBody = document.getElementById('modal-body');
+        const closeModalBtn = document.getElementById('close-modal-btn');
+        const toastContainer = document.getElementById('toast-container');
+        
+        // Event listeners para elementos que existem no carregamento inicial da página
+        document.addEventListener('DOMContentLoaded', () => {
+            loadSection('artists');
+            document.querySelector('.nav-link[data-target="artists"]').classList.add('active');
+            setupSearchListeners();
+            setupFormListeners();
+            setupTableListeners(); // Novo event listener para as tabelas
+        });
+        
+        navLinks.forEach(link => {
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                navLinks.forEach(nav => nav.classList.remove('active'));
+                e.target.classList.add('active');
+                const target = e.target.dataset.target;
+                loadSection(target);
+            });
+        });
+        
+        closeModalBtn.addEventListener('click', () => {
+            modal.classList.remove('active');
+        });
+        
+        window.addEventListener('click', (e) => {
+            if (e.target === modal) {
+                modal.classList.remove('active');
+            }
+        });
+        
+        function showToast(message, isError = false) {
+            const toast = document.createElement('div');
+            toast.className = `toast p-4 mb-2 rounded-md shadow-lg text-sm transition-all duration-300 ${isError ? 'bg-red-500 text-white' : 'bg-green-500 text-white'}`;
+            toast.textContent = message;
+        
+            toastContainer.prepend(toast);
+        
+            setTimeout(() => {
+                toast.classList.add('show');
+            }, 10);
+        
+            setTimeout(() => {
+                toast.classList.remove('show');
+                setTimeout(() => toast.remove(), 300);
+            }, 4000);
+        }
+        
+        async function fetchData(endpoint) {
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                return await response.json();
+            } catch (error) {
+                showToast(`Erro ao carregar dados: ${error.message}`, true);
+                console.error(`Erro ao carregar dados de ${endpoint}:`, error);
+                return [];
+            }
+        }
+        
+        function toggleSection(sectionId) {
+            document.querySelectorAll('section').forEach(section => {
+                section.classList.add('hidden');
+            });
+            document.getElementById(`${sectionId}-section`).classList.remove('hidden');
+            mainTitle.textContent = sectionId.charAt(0).toUpperCase() + sectionId.slice(1);
+        }
+        
+        function setupFormListeners() {
+            document.getElementById('add-artist-btn').addEventListener('click', () => openArtistForm(null));
+            document.getElementById('add-song-btn').addEventListener('click', () => openSongForm(null));
+            document.getElementById('add-genre-btn').addEventListener('click', () => openGenreForm(null));
+        }
+        
+        function setupSearchListeners() {
+            document.getElementById('artist-search').addEventListener('input', (e) => {
+                const query = e.target.value;
+                loadArtists(query);
+            });
+            document.getElementById('song-search').addEventListener('input', (e) => {
+                const query = e.target.value;
+                loadSongs(query);
+            });
+            document.getElementById('genre-search').addEventListener('input', (e) => {
+                const query = e.target.value;
+                loadGenres(query);
+            });
+        }
+        
+        function setupTableListeners() {
+            document.getElementById('artists-list').addEventListener('click', (e) => handleTableClick(e, 'artistas'));
+            document.getElementById('songs-list').addEventListener('click', (e) => handleTableClick(e, 'musicas'));
+            document.getElementById('genres-list').addEventListener('click', (e) => handleTableClick(e, 'generos-musicais'));
+        }
+        
+        function handleTableClick(e, entity) {
+            const btn = e.target.closest('button');
+            if (!btn) return;
+        
+            const action = btn.dataset.action;
+            const id = btn.dataset.id;
+        
+            if (action === 'edit') {
+                if (entity === 'artistas') openArtistForm(id);
+                else if (entity === 'musicas') openSongForm(id);
+                else if (entity === 'generos-musicais') openGenreForm(id);
+            } else if (action === 'delete') {
+                deleteItem(entity, id);
+            }
+        }
+        
+        function loadSection(sectionName) {
+            toggleSection(sectionName);
+            const searchInput = document.getElementById(`${sectionName}-search`);
+            if (searchInput) {
+                searchInput.value = '';
+            }
+            if (sectionName === 'artists') {
+                loadArtists();
+            } else if (sectionName === 'songs') {
+                loadSongs();
+            } else if (sectionName === 'genres') {
+                loadGenres();
+            }
+        }
+        
+        async function loadArtists(query = '') {
+            const endpoint = query ? `/artistas/search?q=${query}` : '/artistas';
+            const artists = await fetchData(endpoint);
+            const listContainer = document.getElementById('artists-list');
+            
+            if (artists.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-400">Nenhum artista encontrado.</p>';
+                return;
+            }
+        
+            const tableHtml = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="p-4">Nome Artístico</th>
+                                <th class="p-4">País de Origem</th>
+                                <th class="p-4 w-32 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${artists.map(artist => `
+                                <tr class="table-row">
+                                    <td class="table-cell">${artist.nomeArtistico}</td>
+                                    <td class="table-cell">${artist.paisDeOrigem}</td>
+                                    <td class="table-cell text-center">
+                                        <button data-action="edit" data-id="${artist.id}" class="text-blue-400 hover:text-blue-600 mx-1">
+                                            <i class="fas fa-edit pointer-events-none"></i>
+                                        </button>
+                                        <button data-action="delete" data-id="${artist.id}" class="text-red-400 hover:text-red-600 mx-1">
+                                            <i class="fas fa-trash-alt pointer-events-none"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            listContainer.innerHTML = tableHtml;
+        }
+        
+        async function loadSongs(query = '') {
+            const endpoint = query ? `/musicas/search?q=${query}` : '/musicas';
+            const songs = await fetchData(endpoint);
+            const listContainer = document.getElementById('songs-list');
+            
+            if (songs.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-400">Nenhuma música encontrada.</p>';
+                return;
+            }
+            
+            const tableHtml = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="p-4">Título</th>
+                                <th class="p-4">Artista</th>
+                                <th class="p-4">Ano de Lançamento</th>
+                                <th class="p-4 w-32 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${songs.map(song => `
+                                <tr class="table-row">
+                                    <td class="table-cell">${song.titulo}</td>
+                                    <td class="table-cell">${song.artista ? song.artista.nomeArtistico : 'N/A'}</td>
+                                    <td class="table-cell">${song.anoLancamento || 'N/A'}</td>
+                                    <td class="table-cell text-center">
+                                        <button data-action="edit" data-id="${song.id}" class="text-blue-400 hover:text-blue-600 mx-1">
+                                            <i class="fas fa-edit pointer-events-none"></i>
+                                        </button>
+                                        <button data-action="delete" data-id="${song.id}" class="text-red-400 hover:text-red-600 mx-1">
+                                            <i class="fas fa-trash-alt pointer-events-none"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            listContainer.innerHTML = tableHtml;
+        }
+        
+        async function loadGenres(query = '') {
+            const endpoint = query ? `/generos-musicais/search?q=${query}` : '/generos-musicais';
+            const genres = await fetchData(endpoint);
+            const listContainer = document.getElementById('genres-list');
+        
+            if (genres.length === 0) {
+                listContainer.innerHTML = '<p class="text-center text-gray-400">Nenhum gênero musical encontrado.</p>';
+                return;
+            }
+            
+            const tableHtml = `
+                <div class="overflow-x-auto">
+                    <table class="min-w-full text-left">
+                        <thead class="table-header">
+                            <tr>
+                                <th class="p-4">Nome</th>
+                                <th class="p-4">Descrição</th>
+                                <th class="p-4 w-32 text-center">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${genres.map(genre => `
+                                <tr class="table-row">
+                                    <td class="table-cell">${genre.nome}</td>
+                                    <td class="table-cell">${genre.descricao || 'N/A'}</td>
+                                    <td class="table-cell text-center">
+                                        <button data-action="edit" data-id="${genre.id}" class="text-blue-400 hover:text-blue-600 mx-1">
+                                            <i class="fas fa-edit pointer-events-none"></i>
+                                        </button>
+                                        <button data-action="delete" data-id="${genre.id}" class="text-red-400 hover:text-red-600 mx-1">
+                                            <i class="fas fa-trash-alt pointer-events-none"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            listContainer.innerHTML = tableHtml;
+        }
+        
+        async function deleteItem(entity, id) {
+            if (!confirm(`Tem certeza que deseja deletar este ${entity.slice(0, -1)}?`)) return;
+        
+            const endpoint = `/${entity}/${id}`;
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: 'DELETE'
+                });
+                if (response.status === 204) {
+                    showToast(`${entity.slice(0, -1)} deletado com sucesso.`);
+                } else if (response.status === 409) {
+                    showToast('Não foi possível deletar. O item está vinculado a outras entidades.', true);
+                } else {
+                    const errorText = await response.text();
+                    showToast(`Erro ao deletar ${entity.slice(0, -1)}: ${errorText}`, true);
+                    throw new Error(`Status: ${response.status}`);
+                }
+                loadSection(entity.slice(0, -1));
+            } catch (error) {
+                showToast(`Erro de conexão ao deletar: ${error.message}`, true);
+                console.error(`Erro ao deletar ${entity.slice(0, -1)}:`, error);
+            }
+        }
+        
+        function showForm(formHtml, title) {
+            modalTitle.textContent = title;
+            modalBody.innerHTML = formHtml;
+            modal.classList.add('active');
+        }
+        
+        async function openArtistForm(id) {
+            let artistData = {};
+            if (id) {
+                const artist = await fetchData(`/artistas/${id}`);
+                if (!artist || artist.length === 0) {
+                    showToast('Artista não encontrado para edição.', true);
+                    return;
+                }
+                artistData = artist[0];
+            }
+        
+            const formHtml = `
+                <form id="artist-form" onsubmit="handleArtistSubmit(event, ${id})">
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Nome Artístico<span class="text-red-500">*</span></label>
+                        <input type="text" id="nomeArtistico" value="${artistData.nomeArtistico || ''}" class="form-input w-full" required minlength="2" maxlength="100">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">País de Origem<span class="text-red-500">*</span></label>
+                        <input type="text" id="paisDeOrigem" value="${artistData.paisDeOrigem || ''}" class="form-input w-full" required maxlength="80">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Nome Completo</label>
+                        <input type="text" id="nomeCompleto" value="${artistData.nomeCompleto || ''}" class="form-input w-full">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Data de Estreia</label>
+                        <input type="date" id="dataDeEstreia" value="${artistData.dataDeEstreia || ''}" class="form-input w-full">
+                    </div>
+                    <div class="mb-4 border-t border-gray-700 pt-4">
+                        <h4 class="font-bold text-white mb-2">Perfil do Artista</h4>
+                        <label class="block text-sm font-bold mb-2">Descrição da Carreira</label>
+                        <textarea id="descricaoCarreira" class="form-textarea w-full">${artistData.perfil ? artistData.perfil.descricaoCarreira || '' : ''}</textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Estilo Musical Principal</label>
+                        <input type="text" id="estiloMusicalPrincipal" value="${artistData.perfil ? artistData.perfil.estiloMusicalPrincipal || '' : ''}" class="form-input w-full">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Prêmios e Reconhecimentos</label>
+                        <textarea id="premiosEReconhecimentos" class="form-textarea w-full">${artistData.perfil ? artistData.perfil.premiosEReconhecimentos || '' : ''}</textarea>
+                    </div>
+                    <button type="submit" class="btn-primary py-2 px-4 rounded w-full mt-4">${id ? 'Atualizar Artista' : 'Salvar Artista'}</button>
+                </form>
+            `;
+            showForm(formHtml, id ? 'Editar Artista' : 'Adicionar Novo Artista');
+        }
+        
+        async function handleArtistSubmit(event, id) {
+            event.preventDefault();
+            const form = event.target;
+            const artistData = {
+                id: id,
+                nomeArtistico: form.elements.nomeArtistico.value,
+                paisDeOrigem: form.elements.paisDeOrigem.value,
+                nomeCompleto: form.elements.nomeCompleto.value || null,
+                dataDeEstreia: form.elements.dataDeEstreia.value || null,
+                perfil: {
+                    descricaoCarreira: form.elements.descricaoCarreira.value || null,
+                    estiloMusicalPrincipal: form.elements.estiloMusicalPrincipal.value || null,
+                    premiosEReconhecimentos: form.elements.premiosEReconhecimentos.value || null,
+                }
+            };
+            
+            const method = id ? 'PUT' : 'POST';
+            const endpoint = id ? `/artistas/${id}` : '/artistas';
+        
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(artistData)
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `Status: ${response.status}`);
+                }
+                showToast(`Artista ${id ? 'atualizado' : 'adicionado'} com sucesso!`);
+                modal.classList.remove('active');
+                loadArtists();
+            } catch (error) {
+                showToast(`Erro ao salvar artista: ${error.message}`, true);
+                console.error('Erro ao salvar artista:', error);
+            }
+        }
+        
+        async function openSongForm(id) {
+            let songData = {};
+            if (id) {
+                const song = await fetchData(`/musicas/${id}`);
+                if (!song || song.length === 0) {
+                    showToast('Música não encontrada para edição.', true);
+                    return;
+                }
+                songData = song[0];
+            }
+        
+            const artists = await fetchData('/artistas');
+            const genres = await fetchData('/generos-musicais');
+            
+            const artistOptions = artists.map(artist => `<option value="${artist.id}" ${songData.artista && songData.artista.id === artist.id ? 'selected' : ''}>${artist.nomeArtistico}</option>`).join('');
+            const genreOptions = genres.map(genre => {
+                const isChecked = songData.generos && songData.generos.some(g => g.id === genre.id);
+                return `<div class="flex items-center"><input type="checkbox" id="genre-${genre.id}" name="genres" value="${genre.id}" ${isChecked ? 'checked' : ''} class="form-checkbox text-primary-color"><label for="genre-${genre.id}" class="ml-2 text-sm">${genre.nome}</label></div>`;
+            }).join('');
+            
+            const formHtml = `
+                <form id="song-form" onsubmit="handleSongSubmit(event, ${id})">
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Título<span class="text-red-500">*</span></label>
+                        <input type="text" id="titulo" value="${songData.titulo || ''}" class="form-input w-full" required minlength="1" maxlength="200">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Letra<span class="text-red-500">*</span></label>
+                        <textarea id="letra" class="form-textarea w-full" required minlength="1" maxlength="2000">${songData.letra || ''}</textarea>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Ano de Lançamento</label>
+                        <input type="number" id="anoLancamento" value="${songData.anoLancamento || ''}" class="form-input w-full" min="1900">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Duração (segundos)</label>
+                        <input type="number" id="duracaoSegundos" value="${songData.duracaoSegundos || ''}" class="form-input w-full" min="0">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Nota (0-10)</label>
+                        <input type="number" id="nota" value="${songData.nota || ''}" class="form-input w-full" min="0" max="10" step="0.1">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Artista</label>
+                        <select id="artista" class="form-select w-full">
+                            <option value="">Selecione um artista</option>
+                            ${artistOptions}
+                        </select>
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Gêneros</label>
+                        <div class="space-y-1">
+                            ${genreOptions}
+                        </div>
+                    </div>
+                    <button type="submit" class="btn-primary py-2 px-4 rounded w-full mt-4">${id ? 'Atualizar Música' : 'Salvar Música'}</button>
+                </form>
+            `;
+            showForm(formHtml, id ? 'Editar Música' : 'Adicionar Nova Música');
+        }
+        
+        async function handleSongSubmit(event, id) {
+            event.preventDefault();
+            const form = event.target;
+            const selectedArtistId = form.elements.artista.value;
+            const selectedGenres = Array.from(form.elements.genres)
+                .filter(checkbox => checkbox.checked)
+                .map(checkbox => ({ id: parseInt(checkbox.value) }));
+            
+            const songData = {
+                id: id,
+                titulo: form.elements.titulo.value,
+                letra: form.elements.letra.value,
+                anoLancamento: form.elements.anoLancamento.value ? parseInt(form.elements.anoLancamento.value) : null,
+                duracaoSegundos: form.elements.duracaoSegundos.value ? parseInt(form.elements.duracaoSegundos.value) : null,
+                nota: form.elements.nota.value ? parseFloat(form.elements.nota.value) : null,
+                artista: selectedArtistId ? { id: parseInt(selectedArtistId) } : null,
+                generos: selectedGenres
+            };
+        
+            const method = id ? 'PUT' : 'POST';
+            const endpoint = id ? `/musicas/${id}` : '/musicas';
+        
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(songData)
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `Status: ${response.status}`);
+                }
+                showToast(`Música ${id ? 'atualizada' : 'adicionada'} com sucesso!`);
+                modal.classList.remove('active');
+                loadSongs();
+            } catch (error) {
+                showToast(`Erro ao salvar música: ${error.message}`, true);
+                console.error('Erro ao salvar música:', error);
+            }
+        }
+        
+        async function openGenreForm(id) {
+            let genreData = {};
+            if (id) {
+                const genre = await fetchData(`/generos-musicais/${id}`);
+                if (!genre || genre.length === 0) {
+                    showToast('Gênero musical não encontrado para edição.', true);
+                    return;
+                }
+                genreData = genre[0];
+            }
+        
+            const formHtml = `
+                <form id="genre-form" onsubmit="handleGenreSubmit(event, ${id})">
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Nome<span class="text-red-500">*</span></label>
+                        <input type="text" id="nome" value="${genreData.nome || ''}" class="form-input w-full" required minlength="2" maxlength="50">
+                    </div>
+                    <div class="mb-4">
+                        <label class="block text-sm font-bold mb-2">Descrição</label>
+                        <textarea id="descricao" class="form-textarea w-full" maxlength="200">${genreData.descricao || ''}</textarea>
+                    </div>
+                    <button type="submit" class="btn-primary py-2 px-4 rounded w-full mt-4">${id ? 'Atualizar Gênero' : 'Salvar Gênero'}</button>
+                </form>
+            `;
+            showForm(formHtml, id ? 'Editar Gênero Musical' : 'Adicionar Novo Gênero');
+        }
+        
+        async function handleGenreSubmit(event, id) {
+            event.preventDefault();
+            const form = event.target;
+            const genreData = {
+                id: id,
+                nome: form.elements.nome.value,
+                descricao: form.elements.descricao.value || null
+            };
+        
+            const method = id ? 'PUT' : 'POST';
+            const endpoint = id ? `/generos-musicais/${id}` : '/generos-musicais';
+        
+            try {
+                const response = await fetch(`${API_BASE_URL}${endpoint}`, {
+                    method: method,
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(genreData)
+                });
+                if (!response.ok) {
+                    const errorText = await response.text();
+                    throw new Error(errorText || `Status: ${response.status}`);
+                }
+                showToast(`Gênero ${id ? 'atualizado' : 'adicionado'} com sucesso!`);
+                modal.classList.remove('active');
+                loadGenres();
+            } catch (error) {
+                showToast(`Erro ao salvar gênero: ${error.message}`, true);
+                console.error('Erro ao salvar gênero:', error);
+            }
+        }
+    </script>
+</body>
+</html>
