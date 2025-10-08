@@ -1,0 +1,869 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>API Musical - CRUD Completo</title>
+    <!-- Carrega Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        'spotify-green': '#1db954', // #1db954 - Destaque Principal
+                        'dark-background': '#121212', // #121212 - Fundo principal (body)
+                        'dark-card': '#212121', // #212121 - Cartões/Containers
+                        'medium-gray': '#535353', // #535353 - Bordas/Divisores
+                        'light-text': '#b3b3b3', // #b3b3b3 - Texto Secundário/Inativo
+                        'white-text': '#ffffff', // Para textos principais
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                    },
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Estilos básicos para o corpo e input */
+        body { 
+            font-family: 'Inter', sans-serif; 
+            background-color: #121212; /* Dark Background */
+            color: #ffffff; /* Default Text Color */
+        }
+        .tab-content { display: none; }
+        .active-tab { display: block; }
+        .tab-button.active {
+            border-bottom-width: 3px;
+            border-color: #1db954; /* spotify-green */
+            font-weight: 600;
+            color: #ffffff; /* Texto branco para aba ativa */
+        }
+        /* Custom styling for multiselect to make it clear */
+        select[multiple] {
+            height: 150px;
+            overflow-y: auto;
+        }
+        /* Cor de fundo dos inputs para o tema escuro */
+        input:not([type="hidden"]), select, textarea {
+            background-color: #212121 !important; 
+            color: #ffffff !important;
+        }
+        input::placeholder {
+            color: #b3b3b3 !important; /* light-text */
+        }
+    </style>
+</head>
+<body class="p-4 md:p-8 bg-dark-background text-white-text">
+
+    <div class="max-w-6xl mx-auto bg-dark-card shadow-2xl rounded-xl p-6 md:p-10">
+        <header class="mb-8 border-b border-medium-gray pb-4">
+            <h1 class="text-4xl font-extrabold text-white-text mb-2">Gerenciador de API Musical</h1>
+            <p class="text-light-text">CRUD e pesquisa paginada para Artistas, Gêneros Musicais e Músicas.</p>
+        </header>
+
+        <!-- Navegação por Abas -->
+        <nav class="flex space-x-2 border-b-2 border-medium-gray mb-6">
+            <button class="tab-button py-2 px-4 text-lg text-light-text transition duration-150 ease-in-out hover:text-white-text" 
+                    onclick="openTab('artistas')">Artistas</button>
+            <button class="tab-button py-2 px-4 text-lg text-light-text transition duration-150 ease-in-out hover:text-white-text" 
+                    onclick="openTab('generos')">Gêneros Musicais</button>
+            <button class="tab-button py-2 px-4 text-lg text-light-text transition duration-150 ease-in-out hover:text-white-text" 
+                    onclick="openTab('musicas')">Músicas</button>
+        </nav>
+
+        <!-- Área de Mensagens (Custom Modal/Alert) -->
+        <div id="message-modal" class="hidden fixed inset-0 bg-dark-background bg-opacity-90 z-50 flex items-center justify-center">
+            <div class="bg-dark-card p-6 rounded-lg shadow-xl w-96 border border-spotify-green">
+                <h3 id="modal-title" class="text-xl font-bold mb-4 text-spotify-green">Sucesso</h3>
+                <p id="modal-content" class="text-white-text">Operação realizada com sucesso.</p>
+                <button onclick="closeModal()" class="mt-4 w-full bg-spotify-green hover:bg-[#1ed760] text-dark-background font-bold py-2 px-4 rounded transition duration-150">Fechar</button>
+            </div>
+        </div>
+
+        <!-- CONTEÚDO DA ABA ARTISTAS -->
+        <div id="artistas" class="tab-content active-tab">
+            <h2 class="text-2xl font-semibold mb-4 text-white-text">Gerenciamento de Artistas</h2>
+            
+            <!-- Formulário de Artista -->
+            <div id="artista-form-container" class="bg-darkest p-6 rounded-lg shadow-inner mb-6 border border-medium-gray">
+                <h3 class="text-xl font-bold mb-4 text-spotify-green">Cadastro/Edição de Artista</h3>
+                <form id="artista-form" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="handleArtistaSubmit(event)">
+                    <input type="hidden" id="artista-id">
+                    
+                    <div class="col-span-1">
+                        <label for="artista-nomeArtistico" class="block text-sm font-medium text-light-text">Nome Artístico*</label>
+                        <input type="text" id="artista-nomeArtistico" required class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="artista-paisDeOrigem" class="block text-sm font-medium text-light-text">País de Origem*</label>
+                        <input type="text" id="artista-paisDeOrigem" required class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="artista-nomeCompleto" class="block text-sm font-medium text-light-text">Nome Completo</label>
+                        <input type="text" id="artista-nomeCompleto" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="artista-dataDeEstreia" class="block text-sm font-medium text-light-text">Data de Estreia (AAAA-MM-DD)</label>
+                        <input type="date" id="artista-dataDeEstreia" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-2">
+                        <label for="artista-perfil-descricaoCarreira" class="block text-sm font-medium text-light-text">Descrição da Carreira (Perfil)</label>
+                        <textarea id="artista-perfil-descricaoCarreira" rows="3" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green"></textarea>
+                    </div>
+
+                    <div class="col-span-2 flex space-x-4 mt-4">
+                        <button type="submit" id="submit-artista-btn" class="flex-1 bg-spotify-green hover:bg-[#1ed760] text-dark-background font-bold py-2 rounded transition duration-150 shadow-md">Salvar Artista</button>
+                        <button type="button" onclick="clearForm('artista')" class="flex-none bg-medium-gray hover:bg-[#6c6c6c] text-white-text font-bold py-2 px-4 rounded transition duration-150 shadow-md">Limpar</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Pesquisa e Lista de Artistas -->
+            <div class="bg-dark-card p-6 rounded-lg shadow-xl border border-medium-gray">
+                <h3 class="text-xl font-bold mb-4 text-white-text">Lista de Artistas</h3>
+                
+                <div class="flex flex-col md:flex-row gap-4 mb-4">
+                    <input type="text" id="artista-search-query" placeholder="Buscar por Nome ou País" class="flex-grow border border-medium-gray rounded-md p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    <button onclick="search('artista', 0)" class="bg-spotify-green hover:bg-[#1ed760] text-dark-background font-bold py-2 px-4 rounded transition duration-150 shadow-md">Pesquisar</button>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-medium-gray">
+                        <thead class="bg-darkest">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">Nome Artístico</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">País de Origem</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-light-text uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="artistas-tabela" class="bg-dark-card divide-y divide-medium-gray">
+                            <tr><td colspan="4" class="p-4 text-center text-light-text">Carregando artistas...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="artistas-pagination" class="mt-4 flex justify-between items-center text-sm text-light-text">
+                    <div>
+                        Total: <span id="artista-total">0</span> | Página <span id="artista-current-page">0</span> de <span id="artista-total-pages">0</span>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="changePage('artista', 'prev')" class="px-3 py-1 bg-medium-gray text-white-text rounded disabled:opacity-50">Anterior</button>
+                        <button onclick="changePage('artista', 'next')" class="px-3 py-1 bg-medium-gray text-white-text rounded disabled:opacity-50">Próxima</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- CONTEÚDO DA ABA GÊNEROS MUSICAIS -->
+        <div id="generos" class="tab-content">
+            <h2 class="text-2xl font-semibold mb-4 text-white-text">Gerenciamento de Gêneros Musicais</h2>
+            
+            <!-- Formulário de Gênero Musical -->
+            <div id="genero-form-container" class="bg-darkest p-6 rounded-lg shadow-inner mb-6 border border-medium-gray">
+                <h3 class="text-xl font-bold mb-4 text-spotify-green">Cadastro/Edição de Gênero</h3>
+                <form id="genero-form" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="handleGeneroSubmit(event)">
+                    <input type="hidden" id="genero-id">
+                    
+                    <div class="col-span-1">
+                        <label for="genero-nome" class="block text-sm font-medium text-light-text">Nome do Gênero*</label>
+                        <input type="text" id="genero-nome" required class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-2">
+                        <label for="genero-descricao" class="block text-sm font-medium text-light-text">Descrição</label>
+                        <textarea id="genero-descricao" rows="2" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green"></textarea>
+                    </div>
+
+                    <div class="col-span-2 flex space-x-4 mt-4">
+                        <button type="submit" id="submit-genero-btn" class="flex-1 bg-spotify-green hover:bg-[#1ed760] text-dark-background font-bold py-2 rounded transition duration-150 shadow-md">Salvar Gênero</button>
+                        <button type="button" onclick="clearForm('genero')" class="flex-none bg-medium-gray hover:bg-[#6c6c6c] text-white-text font-bold py-2 px-4 rounded transition duration-150 shadow-md">Limpar</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Pesquisa e Lista de Gêneros -->
+            <div class="bg-dark-card p-6 rounded-lg shadow-xl border border-medium-gray">
+                <h3 class="text-xl font-bold mb-4 text-white-text">Lista de Gêneros Musicais</h3>
+                
+                <div class="flex flex-col md:flex-row gap-4 mb-4">
+                    <input type="text" id="genero-search-query" placeholder="Buscar por Nome ou Descrição" class="flex-grow border border-medium-gray rounded-md p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    <button onclick="search('genero', 0)" class="bg-spotify-green hover:bg-[#1ed760] text-dark-background font-bold py-2 px-4 rounded transition duration-150 shadow-md">Pesquisar</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-medium-gray">
+                        <thead class="bg-darkest">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">Nome</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-light-text uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="generos-tabela" class="bg-dark-card divide-y divide-medium-gray">
+                            <tr><td colspan="3" class="p-4 text-center text-light-text">Carregando gêneros...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="generos-pagination" class="mt-4 flex justify-between items-center text-sm text-light-text">
+                    <div>
+                        Total: <span id="genero-total">0</span> | Página <span id="genero-current-page">0</span> de <span id="genero-total-pages">0</span>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="changePage('genero', 'prev')" class="px-3 py-1 bg-medium-gray text-white-text rounded disabled:opacity-50">Anterior</button>
+                        <button onclick="changePage('genero', 'next')" class="px-3 py-1 bg-medium-gray text-white-text rounded disabled:opacity-50">Próxima</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- CONTEÚDO DA ABA MÚSICAS -->
+        <div id="musicas" class="tab-content">
+            <h2 class="text-2xl font-semibold mb-4 text-white-text">Gerenciamento de Músicas</h2>
+            
+            <!-- Formulário de Música -->
+            <div id="musica-form-container" class="bg-darkest p-6 rounded-lg shadow-inner mb-6 border border-medium-gray">
+                <h3 class="text-xl font-bold mb-4 text-spotify-green">Cadastro/Edição de Música</h3>
+                <form id="musica-form" class="grid grid-cols-1 md:grid-cols-2 gap-4" onsubmit="handleMusicaSubmit(event)">
+                    <input type="hidden" id="musica-id">
+                    
+                    <div class="col-span-1">
+                        <label for="musica-titulo" class="block text-sm font-medium text-light-text">Título*</label>
+                        <input type="text" id="musica-titulo" required class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="musica-anoLancamento" class="block text-sm font-medium text-light-text">Ano de Lançamento (Mín. 1900)</label>
+                        <input type="number" id="musica-anoLancamento" min="1900" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="musica-duracaoSegundos" class="block text-sm font-medium text-light-text">Duração (Segundos, Mín. 0)</label>
+                        <input type="number" id="musica-duracaoSegundos" min="0" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+                    <div class="col-span-1">
+                        <label for="musica-nota" class="block text-sm font-medium text-light-text">Nota (0.0 a 10.0)</label>
+                        <input type="number" id="musica-nota" step="0.1" min="0.0" max="10.0" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    </div>
+
+                    <!-- Relacionamentos -->
+                    <div class="col-span-1">
+                        <label for="musica-artista-select" class="block text-sm font-medium text-light-text">Artista*</label>
+                        <select id="musica-artista-select" required class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                            <option value="">Selecione um Artista</option>
+                        </select>
+                    </div>
+                    <div class="col-span-1">
+                        <label for="musica-generos-multiselect" class="block text-sm font-medium text-light-text">Gêneros Musicais (Multi-seleção)</label>
+                        <select id="musica-generos-multiselect" multiple class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green">
+                            <!-- Opções carregadas via JS -->
+                        </select>
+                        <p class="text-xs text-light-text mt-1">Use Ctrl/Cmd para selecionar múltiplos.</p>
+                    </div>
+
+                    <div class="col-span-2">
+                        <label for="musica-letra" class="block text-sm font-medium text-light-text">Letra*</label>
+                        <textarea id="musica-letra" required rows="5" class="mt-1 block w-full border border-medium-gray rounded-md shadow-sm p-2 focus:ring-spotify-green focus:border-spotify-green"></textarea>
+                    </div>
+
+                    <div class="col-span-2 flex space-x-4 mt-4">
+                        <button type="submit" id="submit-musica-btn" class="flex-1 bg-spotify-green hover:bg-[#1ed760] text-dark-background font-bold py-2 rounded transition duration-150 shadow-md">Salvar Música</button>
+                        <button type="button" onclick="clearForm('musica')" class="flex-none bg-medium-gray hover:bg-[#6c6c6c] text-white-text font-bold py-2 px-4 rounded transition duration-150 shadow-md">Limpar</button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Pesquisa e Lista de Músicas -->
+            <div class="bg-dark-card p-6 rounded-lg shadow-xl border border-medium-gray">
+                <h3 class="text-xl font-bold mb-4 text-white-text">Lista de Músicas</h3>
+                
+                <div class="flex flex-col md:flex-row gap-4 mb-4">
+                    <input type="text" id="musica-search-query" placeholder="Buscar por Título ou Ano" class="flex-grow border border-medium-gray rounded-md p-2 focus:ring-spotify-green focus:border-spotify-green">
+                    <button onclick="search('musica', 0)" class="bg-spotify-green hover:bg-[#1ed760] text-dark-background font-bold py-2 px-4 rounded transition duration-150 shadow-md">Pesquisar</button>
+                </div>
+
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-medium-gray">
+                        <thead class="bg-darkest">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">ID</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">Título</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">Artista</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-light-text uppercase tracking-wider">Ano</th>
+                                <th class="px-6 py-3 text-center text-xs font-medium text-light-text uppercase tracking-wider">Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody id="musicas-tabela" class="bg-dark-card divide-y divide-medium-gray">
+                            <tr><td colspan="5" class="p-4 text-center text-light-text">Carregando músicas...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div id="musicas-pagination" class="mt-4 flex justify-between items-center text-sm text-light-text">
+                    <div>
+                        Total: <span id="musica-total">0</span> | Página <span id="musica-current-page">0</span> de <span id="musica-total-pages">0</span>
+                    </div>
+                    <div class="space-x-2">
+                        <button onclick="changePage('musica', 'prev')" class="px-3 py-1 bg-medium-gray text-white-text rounded disabled:opacity-50">Anterior</button>
+                        <button onclick="changePage('musica', 'next')" class="px-3 py-1 bg-medium-gray text-white-text rounded disabled:opacity-50">Próxima</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // ====================================================================
+        // CONFIGURAÇÃO GLOBAL E UTILITÁRIOS
+        // ====================================================================
+
+        const API_BASE_URL = 'https://music-api-quarkus.onrender.com';
+        
+        // Mantém o estado da paginação de cada entidade
+        const paginationState = {
+            'artista': { page: 0, size: 4 },
+            'genero': { page: 0, size: 4 },
+            'musica': { page: 0, size: 4 },
+        };
+
+        // Variáveis para armazenar dados de lookup (usados no formulário de Música)
+        window.allArtistas = [];
+        window.allGeneros = [];
+
+        // Função para mostrar modal customizado
+        function showModal(title, content, isError = false) {
+            const modal = document.getElementById('message-modal');
+            document.getElementById('modal-title').textContent = title;
+            document.getElementById('modal-content').textContent = content;
+            
+            const titleElement = document.getElementById('modal-title');
+            titleElement.classList.remove('text-spotify-green', 'text-red-600');
+            titleElement.classList.add(isError ? 'text-red-600' : 'text-spotify-green');
+
+            modal.classList.remove('hidden');
+        }
+
+        // Função para fechar modal
+        function closeModal() {
+            document.getElementById('message-modal').classList.add('hidden');
+        }
+
+        // Função genérica de chamada à API com backoff (simulado)
+        async function apiCall(endpoint, method = 'GET', data = null) {
+            const url = `${API_BASE_URL}${endpoint}`;
+            const options = {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+            };
+
+            if (data && (method === 'POST' || method === 'PUT')) {
+                options.body = JSON.stringify(data);
+            }
+
+            try {
+                const response = await fetch(url, options);
+                
+                if (response.status === 204) {
+                    return null; // No Content (DELETE sucesso)
+                }
+                
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    const result = await response.json();
+                    if (!response.ok) {
+                        const errorMessage = result.message || JSON.stringify(result);
+                        throw new Error(`Erro ${response.status}: ${errorMessage}`);
+                    }
+                    return result;
+                } else {
+                    if (!response.ok) {
+                        throw new Error(`Erro ${response.status}: ${await response.text()}`);
+                    }
+                    return null; 
+                }
+
+            } catch (error) {
+                console.error('Erro na chamada da API:', error);
+                showModal('Erro na API', error.message, true);
+                return null;
+            }
+        }
+        
+        // Inicialização da Aplicação
+        document.addEventListener('DOMContentLoaded', () => {
+            openTab('artistas'); // Abre a primeira aba
+            loadArtistas();
+            loadGeneros();
+            loadMusicas();
+            loadDependencies(); // Carrega dependências para o formulário de Música
+        });
+
+        // ====================================================================
+        // FUNÇÕES DE INTERFACE (TABS, FORMS E PAGINAÇÃO)
+        // ====================================================================
+
+        function openTab(tabName) {
+            // Esconde todo o conteúdo
+            document.querySelectorAll('.tab-content').forEach(content => {
+                content.classList.remove('active-tab');
+            });
+
+            // Remove a classe 'active' de todos os botões
+            document.querySelectorAll('.tab-button').forEach(button => {
+                button.classList.remove('active');
+            });
+
+            // Mostra o conteúdo da aba selecionada
+            document.getElementById(tabName).classList.add('active-tab');
+
+            // Adiciona a classe 'active' ao botão clicado
+            document.querySelector(`[onclick="openTab('${tabName}')"]`).classList.add('active');
+
+            // Carrega os dados da aba selecionada caso não tenham sido carregados ou para atualizar
+            if (tabName === 'artistas') searchArtistas(paginationState.artista.page);
+            if (tabName === 'generos') searchGeneros(paginationState.genero.page);
+            if (tabName === 'musicas') searchMusicas(paginationState.musica.page);
+        }
+
+        function clearForm(entity) {
+            document.getElementById(`${entity}-form`).reset();
+            document.getElementById(`${entity}-id`).value = '';
+            document.getElementById(`submit-${entity}-btn`).textContent = `Salvar ${entity.charAt(0).toUpperCase() + entity.slice(1)}`;
+            
+            // Lógica específica para o multiselect de música
+            if (entity === 'musica') {
+                document.querySelectorAll('#musica-generos-multiselect option').forEach(option => {
+                    option.selected = false;
+                });
+            }
+        }
+        
+        function changePage(entity, direction) {
+            let newPage = paginationState[entity].page;
+            if (direction === 'next') {
+                newPage += 1;
+            } else if (direction === 'prev') {
+                newPage -= 1;
+            }
+
+            if (newPage >= 0) {
+                paginationState[entity].page = newPage;
+                if (entity === 'artista') searchArtistas(newPage);
+                if (entity === 'genero') searchGeneros(newPage);
+                if (entity === 'musica') searchMusicas(newPage);
+            }
+        }
+
+        function updatePaginationInfo(entity, data) {
+            document.getElementById(`${entity}-total`).textContent = data[`Total${entity.charAt(0).toUpperCase() + entity.slice(1)}s`] || 0;
+            document.getElementById(`${entity}-current-page`).textContent = (paginationState[entity].page + 1);
+            document.getElementById(`${entity}-total-pages`).textContent = data.TotalPages || 0;
+
+            const prevButton = document.querySelector(`#${entity}s-pagination button:first-child`);
+            const nextButton = document.querySelector(`#${entity}s-pagination button:last-child`);
+            
+            prevButton.disabled = paginationState[entity].page === 0;
+            // Desabilita o próximo botão se não houver mais páginas ou se a página atual for a última
+            nextButton.disabled = !data.HasMore || (data.TotalPages > 0 && paginationState[entity].page >= (data.TotalPages - 1));
+        }
+
+        // Função genérica para pesquisa paginada
+        function search(entity, page = 0) {
+            paginationState[entity].page = page;
+            if (entity === 'artista') searchArtistas(page);
+            if (entity === 'genero') searchGeneros(page);
+            if (entity === 'musica') searchMusicas(page);
+        }
+        
+        // Funções de carregamento iniciais chamam a pesquisa
+        function loadArtistas() { searchArtistas(0); }
+        function loadGeneros() { searchGeneros(0); }
+        function loadMusicas() { searchMusicas(0); }
+
+        // ====================================================================
+        // FUNÇÕES DE AJUDA PARA RELACIONAMENTOS (MÚSICA)
+        // ====================================================================
+
+        // Carrega a lista completa de Artistas e Gêneros para selects
+        async function loadDependencies() {
+            // Pega todos os artistas (a rota GET /artistas retorna tudo)
+            window.allArtistas = await apiCall('/artistas', 'GET') || []; 
+            // Pega todos os gêneros (a rota GET /generos-musicais retorna tudo)
+            window.allGeneros = await apiCall('/generos-musicais', 'GET') || [];
+            
+            // Popula os selects no formulário de música
+            populateSelect('musica-artista-select', window.allArtistas, 'id', 'nomeArtistico');
+            populateMultiselect('musica-generos-multiselect', window.allGeneros, 'id', 'nome');
+        }
+
+        // Função para popular um <select> simples
+        function populateSelect(selectId, items, valueKey, labelKey) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '<option value="">Selecione...</option>';
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[valueKey];
+                option.textContent = item[labelKey];
+                select.appendChild(option);
+            });
+        }
+
+        // Função para popular um <select multiple>
+        function populateMultiselect(selectId, items, valueKey, labelKey) {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = '';
+            items.forEach(item => {
+                const option = document.createElement('option');
+                option.value = item[valueKey];
+                option.textContent = item[labelKey];
+                option.setAttribute('data-id', item[valueKey]); // Guarda o ID para facilitar a seleção
+                select.appendChild(option);
+            });
+        }
+
+        // ====================================================================
+        // ARTISTA (CRUD + SEARCH)
+        // ====================================================================
+
+        async function handleArtistaSubmit(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('artista-id').value;
+            const nomeArtistico = document.getElementById('artista-nomeArtistico').value;
+            const paisDeOrigem = document.getElementById('artista-paisDeOrigem').value;
+            const nomeCompleto = document.getElementById('artista-nomeCompleto').value;
+            const dataDeEstreia = document.getElementById('artista-dataDeEstreia').value;
+            const descricaoCarreira = document.getElementById('artista-perfil-descricaoCarreira').value;
+
+            const artistaData = {
+                nomeArtistico,
+                paisDeOrigem,
+                nomeCompleto: nomeCompleto || undefined,
+                dataDeEstreia: dataDeEstreia || undefined,
+                perfil: {
+                    descricaoCarreira: descricaoCarreira || undefined,
+                    // EstiloMusicalPrincipal e PremiosEReconhecimentos não estão no formulário, mas podem ser adicionados
+                }
+            };
+            
+            // Limpa campos opcionais vazios para evitar envio de strings vazias (que falhariam na validação do backend)
+            Object.keys(artistaData).forEach(key => (artistaData[key] === undefined) && delete artistaData[key]);
+            if (artistaData.perfil && Object.keys(artistaData.perfil).length === 0) delete artistaData.perfil;
+
+            let result;
+            if (id) {
+                // UPDATE (PUT)
+                result = await apiCall(`/artistas/${id}`, 'PUT', { id: parseInt(id), ...artistaData });
+            } else {
+                // CREATE (POST)
+                result = await apiCall('/artistas', 'POST', artistaData);
+            }
+
+            if (result) {
+                showModal('Sucesso', `Artista ${id ? 'atualizado' : 'criado'} com sucesso! ID: ${result.id}`);
+                clearForm('artista');
+                searchArtistas(paginationState.artista.page);
+                loadDependencies(); // Atualiza a lista de artistas para o form de Música
+            }
+        }
+
+        async function searchArtistas(page) {
+            const q = document.getElementById('artista-search-query').value;
+            // Usando 'id' como sort, mas poderia ser 'nomeArtistico' para ordenação alfabética
+            const endpoint = `/artistas/search?page=${page}&size=${paginationState.artista.size}&sort=id&direction=asc${q ? `&q=${q}` : ''}`;
+            const data = await apiCall(endpoint, 'GET');
+
+            const tbody = document.getElementById('artistas-tabela');
+            tbody.innerHTML = ''; 
+
+            if (data && data.Artistas) {
+                data.Artistas.forEach(artista => {
+                    const row = tbody.insertRow();
+                    row.className = 'hover:bg-darkest';
+                    row.insertCell().textContent = artista.id;
+                    row.insertCell().textContent = artista.nomeArtistico;
+                    row.insertCell().textContent = artista.paisDeOrigem;
+                    
+                    const actionsCell = row.insertCell();
+                    actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2';
+                    
+                    // Botão Editar
+                    const editBtn = createActionButton('Editar', 'text-spotify-green hover:text-[#1ed760]', () => getArtistaById(artista.id));
+                    actionsCell.appendChild(editBtn);
+
+                    // Botão Excluir
+                    const deleteBtn = createActionButton('Excluir', 'text-red-500 hover:text-red-700 ml-2', () => deleteArtista(artista.id));
+                    actionsCell.appendChild(deleteBtn);
+                });
+                updatePaginationInfo('artista', data);
+            } else {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-light-text">${q ? 'Nenhum resultado para a busca.' : 'Nenhum artista cadastrado.'}</td></tr>`;
+                updatePaginationInfo('artista', { TotalArtistas: 0, TotalPages: 0 });
+            }
+        }
+
+        async function getArtistaById(id) {
+            const artista = await apiCall(`/artistas/${id}`, 'GET');
+            if (artista) {
+                document.getElementById('artista-id').value = artista.id;
+                document.getElementById('artista-nomeArtistico').value = artista.nomeArtistico;
+                document.getElementById('artista-paisDeOrigem').value = artista.paisDeOrigem;
+                document.getElementById('artista-nomeCompleto').value = artista.nomeCompleto || '';
+                document.getElementById('artista-dataDeEstreia').value = artista.dataDeEstreia || '';
+                document.getElementById('artista-perfil-descricaoCarreira').value = artista.perfil ? (artista.perfil.descricaoCarreira || '') : '';
+                document.getElementById('submit-artista-btn').textContent = `Atualizar Artista (ID: ${artista.id})`;
+                window.scrollTo(0, document.getElementById('artista-form-container').offsetTop); // Leva para o formulário
+            }
+        }
+
+        async function deleteArtista(id) {
+            if (!confirm(`Tem certeza que deseja deletar o Artista com ID ${id}? (Pode falhar por CONFLITO se houver músicas vinculadas)`)) {
+                return;
+            }
+            
+            const result = await apiCall(`/artistas/${id}`, 'DELETE');
+            if (result === null) {
+                showModal('Sucesso', 'Artista deletado com sucesso!');
+                searchArtistas(paginationState.artista.page);
+                loadDependencies(); // Atualiza dependências
+            }
+            // Erros como 409 (Conflito) são tratados por apiCall
+        }
+
+        // ====================================================================
+        // GÊNERO MUSICAL (CRUD + SEARCH)
+        // ====================================================================
+
+        async function handleGeneroSubmit(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('genero-id').value;
+            const nome = document.getElementById('genero-nome').value;
+            const descricao = document.getElementById('genero-descricao').value;
+
+            const generoData = {
+                nome,
+                descricao: descricao || undefined,
+            };
+
+            Object.keys(generoData).forEach(key => (generoData[key] === undefined) && delete generoData[key]);
+
+            let result;
+            if (id) {
+                // UPDATE (PUT)
+                result = await apiCall(`/generos-musicais/${id}`, 'PUT', { id: parseInt(id), ...generoData });
+            } else {
+                // CREATE (POST)
+                result = await apiCall('/generos-musicais', 'POST', generoData);
+            }
+
+            if (result) {
+                showModal('Sucesso', `Gênero ${id ? 'atualizado' : 'criado'} com sucesso! ID: ${result.id}`);
+                clearForm('genero');
+                searchGeneros(paginationState.genero.page);
+                loadDependencies(); // Atualiza a lista de gêneros para o form de Música
+            }
+        }
+
+        async function searchGeneros(page) {
+            const q = document.getElementById('genero-search-query').value;
+            const endpoint = `/generos-musicais/search?page=${page}&size=${paginationState.genero.size}&sort=id&direction=asc${q ? `&q=${q}` : ''}`;
+            const data = await apiCall(endpoint, 'GET');
+
+            const tbody = document.getElementById('generos-tabela');
+            tbody.innerHTML = ''; 
+
+            if (data && data.GenerosMusicais) {
+                data.GenerosMusicais.forEach(genero => {
+                    const row = tbody.insertRow();
+                    row.className = 'hover:bg-darkest';
+                    row.insertCell().textContent = genero.id;
+                    row.insertCell().textContent = genero.nome;
+                    
+                    const actionsCell = row.insertCell();
+                    actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2';
+                    
+                    const editBtn = createActionButton('Editar', 'text-spotify-green hover:text-[#1ed760]', () => getGeneroById(genero.id));
+                    actionsCell.appendChild(editBtn);
+
+                    const deleteBtn = createActionButton('Excluir', 'text-red-500 hover:text-red-700 ml-2', () => deleteGenero(genero.id));
+                    actionsCell.appendChild(deleteBtn);
+                });
+                updatePaginationInfo('genero', data);
+            } else {
+                tbody.innerHTML = `<tr><td colspan="3" class="p-4 text-center text-light-text">${q ? 'Nenhum resultado para a busca.' : 'Nenhum gênero cadastrado.'}</td></tr>`;
+                updatePaginationInfo('genero', { TotalGenerosMusicais: 0, TotalPages: 0 });
+            }
+        }
+
+        async function getGeneroById(id) {
+            const genero = await apiCall(`/generos-musicais/${id}`, 'GET');
+            if (genero) {
+                document.getElementById('genero-id').value = genero.id;
+                document.getElementById('genero-nome').value = genero.nome;
+                document.getElementById('genero-descricao').value = genero.descricao || '';
+                document.getElementById('submit-genero-btn').textContent = `Atualizar Gênero (ID: ${genero.id})`;
+                window.scrollTo(0, document.getElementById('genero-form-container').offsetTop); 
+            }
+        }
+
+        async function deleteGenero(id) {
+            if (!confirm(`Tem certeza que deseja deletar o Gênero com ID ${id}? (Pode falhar por CONFLITO se houver músicas vinculadas)`)) {
+                return;
+            }
+            
+            const result = await apiCall(`/generos-musicais/${id}`, 'DELETE');
+            if (result === null) {
+                showModal('Sucesso', 'Gênero deletado com sucesso!');
+                searchGeneros(paginationState.genero.page);
+                loadDependencies(); // Atualiza dependências
+            }
+        }
+
+        // ====================================================================
+        // MÚSICA (CRUD + SEARCH)
+        // ====================================================================
+
+        async function handleMusicaSubmit(event) {
+            event.preventDefault();
+            
+            const id = document.getElementById('musica-id').value;
+            const titulo = document.getElementById('musica-titulo').value;
+            const letra = document.getElementById('musica-letra').value;
+            const anoLancamento = document.getElementById('musica-anoLancamento').value;
+            const duracaoSegundos = document.getElementById('musica-duracaoSegundos').value;
+            const nota = document.getElementById('musica-nota').value;
+            const artistaId = document.getElementById('musica-artista-select').value;
+            const generosSelect = document.getElementById('musica-generos-multiselect');
+            
+            // Mapeia o ID do artista selecionado para o objeto completo (ou parcial com ID)
+            const artistaSelecionado = window.allArtistas.find(a => a.id == artistaId) || null;
+
+            // Mapeia os IDs dos gêneros selecionados para o array de objetos
+            const generosSelecionados = Array.from(generosSelect.options)
+                .filter(option => option.selected)
+                .map(option => window.allGeneros.find(g => g.id == option.value))
+                .filter(g => g != null); // Remove nulos se houver
+
+            if (!artistaSelecionado) {
+                showModal('Erro de Validação', 'Você deve selecionar um artista válido.', true);
+                return;
+            }
+
+            const musicaData = {
+                titulo,
+                letra,
+                artista: artistaSelecionado, // Objeto Artista
+                generos: generosSelecionados, // Array de objetos GeneroMusical
+                anoLancamento: anoLancamento ? parseInt(anoLancamento) : undefined,
+                duracaoSegundos: duracaoSegundos ? parseInt(duracaoSegundos) : undefined,
+                nota: nota ? parseFloat(nota) : undefined,
+            };
+
+            // Limpa undefineds
+            Object.keys(musicaData).forEach(key => (musicaData[key] === undefined) && delete musicaData[key]);
+
+            let result;
+            if (id) {
+                // UPDATE (PUT)
+                result = await apiCall(`/musicas/${id}`, 'PUT', { id: parseInt(id), ...musicaData });
+            } else {
+                // CREATE (POST)
+                result = await apiCall('/musicas', 'POST', musicaData);
+            }
+
+            if (result) {
+                showModal('Sucesso', `Música ${id ? 'atualizada' : 'criada'} com sucesso! ID: ${result.id}`);
+                clearForm('musica');
+                searchMusicas(paginationState.musica.page);
+            }
+        }
+
+        async function searchMusicas(page) {
+            const q = document.getElementById('musica-search-query').value;
+            // A busca 'q' aceita título, ano ou duração.
+            const endpoint = `/musicas/search?page=${page}&size=${paginationState.musica.size}&sort=id&direction=asc${q ? `&q=${q}` : ''}`;
+            const data = await apiCall(endpoint, 'GET');
+
+            const tbody = document.getElementById('musicas-tabela');
+            tbody.innerHTML = ''; 
+
+            if (data && data.Musicas) {
+                data.Musicas.forEach(musica => {
+                    const row = tbody.insertRow();
+                    row.className = 'hover:bg-darkest';
+                    row.insertCell().textContent = musica.id;
+                    row.insertCell().textContent = musica.titulo;
+                    row.insertCell().textContent = musica.artista ? musica.artista.nomeArtistico : 'N/A';
+                    row.insertCell().textContent = musica.anoLancamento || 'N/A';
+                    
+                    const actionsCell = row.insertCell();
+                    actionsCell.className = 'px-6 py-4 whitespace-nowrap text-right text-sm font-medium space-x-2';
+                    
+                    const editBtn = createActionButton('Editar', 'text-spotify-green hover:text-[#1ed760]', () => getMusicaById(musica.id));
+                    actionsCell.appendChild(editBtn);
+
+                    const deleteBtn = createActionButton('Excluir', 'text-red-500 hover:text-red-700 ml-2', () => deleteMusica(musica.id));
+                    actionsCell.appendChild(deleteBtn);
+                });
+                updatePaginationInfo('musica', data);
+            } else {
+                tbody.innerHTML = `<tr><td colspan="5" class="p-4 text-center text-light-text">${q ? 'Nenhum resultado para a busca.' : 'Nenhuma música cadastrada.'}</td></tr>`;
+                updatePaginationInfo('musica', { TotalMusicas: 0, TotalPages: 0 });
+            }
+        }
+        
+        async function getMusicaById(id) {
+            const musica = await apiCall(`/musicas/${id}`, 'GET');
+            if (musica) {
+                document.getElementById('musica-id').value = musica.id;
+                document.getElementById('musica-titulo').value = musica.titulo;
+                document.getElementById('musica-letra').value = musica.letra;
+                document.getElementById('musica-anoLancamento').value = musica.anoLancamento || '';
+                document.getElementById('musica-duracaoSegundos').value = musica.duracaoSegundos || '';
+                document.getElementById('musica-nota').value = musica.nota || '';
+                
+                // Seleciona o Artista
+                document.getElementById('musica-artista-select').value = musica.artista ? musica.artista.id : '';
+                
+                // Seleciona os Gêneros (Multi-select)
+                const generosSelect = document.getElementById('musica-generos-multiselect');
+                document.querySelectorAll('#musica-generos-multiselect option').forEach(option => {
+                    option.selected = musica.generos.some(g => g.id == option.value);
+                });
+
+                document.getElementById('submit-musica-btn').textContent = `Atualizar Música (ID: ${musica.id})`;
+                window.scrollTo(0, document.getElementById('musica-form-container').offsetTop); 
+            }
+        }
+
+        async function deleteMusica(id) {
+            if (!confirm(`Tem certeza que deseja deletar a Música com ID ${id}?`)) {
+                return;
+            }
+            
+            const result = await apiCall(`/musicas/${id}`, 'DELETE');
+            if (result === null) {
+                showModal('Sucesso', 'Música deletada com sucesso!');
+                searchMusicas(paginationState.musica.page);
+            }
+        }
+
+        // ====================================================================
+        // UTILS
+        // ====================================================================
+
+        function createActionButton(text, classes, onClickHandler) {
+            const button = document.createElement('button');
+            button.textContent = text;
+            button.className = `inline-flex items-center justify-center p-1 text-xs font-semibold rounded transition duration-150 ${classes}`;
+            button.onclick = onClickHandler;
+            return button;
+        }
+
+    </script>
+</body>
+</html>
